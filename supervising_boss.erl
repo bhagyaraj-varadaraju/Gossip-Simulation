@@ -50,7 +50,7 @@ main_2D_topology(ActorCount, Topology, Algorithm) ->
   % Spawn the given number of actors in 2D topology
   topology:spawn_twoD({1, 1}, {Rows, Cols}, Topology, Algorithm),
 
-  % Select a Random participant for starting the gossip
+  % Select a Random partictipant for starting the gossip
   SelectedActorPID = ets:lookup_element(pidTable, {1, 1}, 2), % For now select the first element, and take the PID of that
 
   % Let the supervisor handover the message to the TransmissionPID process
