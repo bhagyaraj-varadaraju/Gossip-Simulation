@@ -13,6 +13,7 @@
 %% API
 -export([gossip_worker/3]).
 
+
 spread_gossip_to_neighbor(MYWorkerIndex, MaxWorkerIndex, Topology, RumorList) ->
   % Select a random actor from the neighbors
   RandNeighborIndex = utils:get_next_actor(MYWorkerIndex, MaxWorkerIndex, Topology),

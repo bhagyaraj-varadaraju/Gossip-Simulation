@@ -8,9 +8,14 @@
 %%%-------------------------------------------------------------------
 -module(utils).
 -author("bhagyaraj").
+-define(MAX_ROUNDS_WITH_SAME_STATE_TO_CONVERGE, 3).
 
 %% API
 -export([round_up_to_perfect_square/1, get_next_actor/3]).
+
+check_if_pushsum_converged(SumEstimateList) ->
+  done.
+
 
 round_up_to_perfect_square(ActorCount) ->
   % Round up the ActorCount to a perfect square
@@ -35,19 +40,21 @@ round_up_to_perfect_square(ActorCount) ->
           end
   end.
 
+
 choose_random_neighbour(NeighbourList)->
   NeighbourNumber = lists:flatlength(NeighbourList),
   RandomNeighbour = rand:uniform(NeighbourNumber),
   lists:nth(RandomNeighbour,NeighbourList).
 
-get_neighbour_oned(CurrentActorIndex, MaxActorIndex) ->
+
+get_neighbour_oneD(CurrentActorIndex, MaxActorIndex) ->
   if CurrentActorIndex == 1 -> [2];
      CurrentActorIndex == MaxActorIndex -> [MaxActorIndex-1];
      true -> [CurrentActorIndex-1,CurrentActorIndex+1]
   end.
 
-get_neighbours_twod(Row,Column,MaxRows,MaxColumns)->
 
+get_neighbours_twoD(Row,Column,MaxRows,MaxColumns)->
   case Row of
     1 ->
       case Column of
@@ -81,8 +88,6 @@ get_neighbours_twod(Row,Column,MaxRows,MaxColumns)->
   end.
 
 
-
-
 get_next_actor(CurrentActorIndex, MaxActorIndex, Topology) ->
   case Topology of
     full ->
@@ -91,26 +96,26 @@ get_next_actor(CurrentActorIndex, MaxActorIndex, Topology) ->
         CurrentActorIndex == NextActorIndex -> get_next_actor(CurrentActorIndex, MaxActorIndex, Topology);
         true -> NextActorIndex
       end;
+
     line ->
-      NeighboursList = get_neighbour_oned(CurrentActorIndex,MaxActorIndex),
+      NeighboursList = get_neighbour_oneD(CurrentActorIndex,MaxActorIndex),
       NextActorIndex = choose_random_neighbour(NeighboursList),
       NextActorIndex;
 
     twoD ->
       {CurrentRow, CurrentColumn} = CurrentActorIndex,
       {MaxRows,MaxColumns} = MaxActorIndex,
-      NeighboursList = get_neighbours_twod(CurrentRow,CurrentColumn,MaxRows,MaxColumns),
+      NeighboursList = get_neighbours_twoD(CurrentRow,CurrentColumn,MaxRows,MaxColumns),
       NextActorIndex = choose_random_neighbour(NeighboursList),
       {NextActorRow, NextActorColumn} = NextActorIndex,
       {NextActorRow, NextActorColumn};
+
     imp2D ->
       {CurrentRow, CurrentColumn} = CurrentActorIndex,
       {MaxRows, MaxColumns} = MaxActorIndex,
-      NeighboursList = get_neighbours_twod(CurrentRow,CurrentColumn,MaxRows,MaxColumns),
+      NeighboursList = get_neighbours_twoD(CurrentRow,CurrentColumn,MaxRows,MaxColumns),
       RandomActorIndex = {choose_random_neighbour(lists:seq(1,MaxRows)),choose_random_neighbour(lists:seq(1,MaxColumns))},
       NextImperfectActor = lists:append(NeighboursList,[RandomActorIndex]),
       {NextRow, NextColumn} = choose_random_neighbour(NextImperfectActor),
       {NextRow,NextColumn}
-
   end.
-
