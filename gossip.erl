@@ -11,46 +11,63 @@
 -define(MAX_RUMOR_COUNT_TO_CONVERGE, 10).
 
 %% API
--export([gossip_worker/4]).
+-export([gossip_worker/3]).
 
-spread_gossip_to_neighbor(MYWorkerIndex, TotalWorkerCount, Topology, RumorList) ->
-  done.
+spread_gossip_to_neighbor(MYWorkerIndex, MaxWorkerIndex, Topology, RumorList) ->
+  % Select a random actor from the neighbors
+  RandNeighborIndex = utils:get_next_actor(MYWorkerIndex, MaxWorkerIndex, Topology),
 
-listen_to_gossip(MYWorkerIndex, TotalWorkerCount, Topology, RumorList) ->
+  % Lookup the PID of the selected neighbor
+  RandNeighborPID = ets:lookup_element(pidTable, RandNeighborIndex, 2),
+
+  % Send the most recent gossip message from the RumorList to the selected worker
+  RandNeighborPID ! {gossip_from_worker, lists:last(RumorList)},
+
+  % Continue listening to gossips after spreading the gossip to a neighbor
+  listen_to_gossip(MYWorkerIndex, MaxWorkerIndex, Topology, RumorList).
+
+
+listen_to_gossip(MYWorkerIndex, MaxWorkerIndex, Topology, RumorList) ->
   % Get the number of rumors seen by this worker.
   RumorListLength = lists:flatlength(RumorList),
 
-  Converge_in_progress = RumorListLength < ?MAX_RUMOR_COUNT_TO_CONVERGE,
+  % Check if we received the maximum amount of rumors for convergence,
+  Convergence_in_progress = RumorListLength < ?MAX_RUMOR_COUNT_TO_CONVERGE,
 
   if
-    RumorListLength == 0 ->
-    receive ->
-    % Gossip sent by the supervisor, only one selected process will receive initiate_gossip message.
-    {initiate_gossip, Rumor} ->
-    io:format("Rumor '[~p]' received from the supervisor~n", [Rumor]),
-    % Receive the gossip sent from other workers
-    {spread_gossip, Rumor} -> listen_to_gossips(MYWorkerIndex, TotalWorkerCount, Topology, RumorList)
+    Convergence_in_progress ->
+      if
+        % Wait indefinitely until we receive at least one rumor.
+        RumorListLength == 0 ->
+          receive
+          % Gossip sent by the supervisor, only one selected process will receive 'gossip_from_supervisor' message.
+            {gossip_from_boss, Rumor} ->
+              io:format("Rumor '~p' received from the supervisor~n", [Rumor]),
+              spread_gossip_to_neighbor(MYWorkerIndex, MaxWorkerIndex, Topology, lists:append(RumorList, [Rumor]));
+
+          % Receive the gossip sent from other workers
+            {gossip_from_worker, Rumor} ->
+              spread_gossip_to_neighbor(MYWorkerIndex, MaxWorkerIndex, Topology, lists:append(RumorList, [Rumor]))
+          end;
+
+        % If we have already received a gossip previously, continue spreading rumors after processing message queue
+        RumorListLength > 0 ->
+          % Process any received gossips from other workers
+          receive
+            {gossip_from_worker, Rumor} ->
+              spread_gossip_to_neighbor(MYWorkerIndex, MaxWorkerIndex, Topology, lists:append(RumorList, [Rumor]))
+
+          % keep spreading the rumor if there are no messages in the mailbox
+          after 0 ->
+            spread_gossip_to_neighbor(MYWorkerIndex, MaxWorkerIndex, Topology, RumorList)
+          end
+      end;
+
+    % Send 'success' message to the supervisor after convergence is done
     true ->
-  listen_to_gossip(MYWorkerIndex, TotalWorkerCount, Topology, RumorList)
-  end
-
-  if
-    Converge_in_progress ->
-      spread_gossip_to_neighbor(MYWorkerIndex, TotalWorkerCount, Topology, RumorList);
-      true ->
-      % Check whether the max rumor count to converge has been reached
-      RumorListLength < ?MAX_RUMOR_COUNT_TO_CONVERGE ->
-        % Keep listening to the rumors from other workers
+      supervising_boss ! {success, MYWorkerIndex}
+  end.
 
 
-    % Send 'success' message to the supervisor after gossiping is done, so the supervisor can terminate this actor.
-    true ->
-      supervisor ! {success, MYWorkerIndex}
-  end,
-    % Listen to gossips and every 1 ms
-    %if not spread the gossip to neighbors
-
-  done.
-
-gossip_worker(MYWorkerIndex, TotalWorkerCount, Topology, RumorList) ->
-  listen_to_gossip(MYWorkerIndex, TotalWorkerCount, Topology, RumorList).
+gossip_worker(MYWorkerIndex, MaxWorkerIndex, Topology) ->
+  listen_to_gossip(MYWorkerIndex, MaxWorkerIndex, Topology, []).

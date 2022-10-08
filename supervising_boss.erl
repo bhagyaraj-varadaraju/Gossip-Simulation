@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 06. Oct 2022 5:27 PM
 %%%-------------------------------------------------------------------
--module(supervisor).
+-module(supervising_boss).
 -author("bhagyaraj").
 
 %% API
@@ -14,7 +14,7 @@
 
 wait_for_convergence(NumOfMsgsRcvd, MaxActors) ->
   if
-    NumOfMsgsRcvd == MaxActors -> io:format("All [~p] finished gossiping and converged", [MaxActors]);
+    NumOfMsgsRcvd == MaxActors -> io:format("All ~p workers finished gossiping and converged~n", [MaxActors]);
     true ->
       receive
         {success, SentActorIndex} ->
@@ -28,12 +28,12 @@ start_transmission(SelectedActorPID, Algorithm) ->
   case Algorithm of
     gossip ->
       % Send the rumor to the selected process for gossiping
-      io:format("Using gossip algorithm"),
-      SelectedActorPID ! {gossip_from_supervisor, bhagyaraj};
+      io:format("Using gossip algorithm~n"),
+      SelectedActorPID ! {gossip_from_boss, bhagyaraj};
     pushsum ->
       % Send the {sum, weight} to the selected node for calculating the sum of all nodes
-      io:format("Using pushsum algorithm"),
-      SelectedActorPID ! {pushsum_from_supervisor, {1, 1}}
+      io:format("Using pushsum algorithm~n"),
+      SelectedActorPID ! {pushsum_from_boss, {1, 1}}
   end.
 
 
@@ -44,11 +44,14 @@ main_2D_topology(ActorCount, Topology, Algorithm) ->
   % Get rows and columns to create the topology
   {Rows, Cols} = {trunc(math:sqrt(AdjustedActorCount)), trunc(math:sqrt(AdjustedActorCount))},
 
+  % Create an ETS table 'pidTable' for storing {Index, PID} for each actor
+  ets:new(pidTable, [set, named_table, protected]),
+
   % Spawn the given number of actors in 2D topology
-  PIDMap = topology:spawn_twoD({1, 1}, {Rows, Cols}, Topology, Algorithm, ets:new(pidMap, [set, protected, named_table])),
+  topology:spawn_twoD({1, 1}, {Rows, Cols}, Topology, Algorithm),
 
   % Select a Random participant for starting the gossip
-  SelectedActorPID = ets:lookup_element(PIDMap, {1, 1}, 2), % For now select the first element, and take the PID of that
+  SelectedActorPID = ets:lookup_element(pidTable, {1, 1}, 2), % For now select the first element, and take the PID of that
 
   % Let the supervisor handover the message to the TransmissionPID process
   start_transmission(SelectedActorPID, Algorithm),
@@ -67,11 +70,14 @@ main_2D_topology(ActorCount, Topology, Algorithm) ->
 
 
 main_1D_topology(ActorCount, Topology, Algorithm) ->
+  % Create an ETS table 'pidTable' for storing {Index, PID} for each actor
+  ets:new(pidTable, [set, named_table, protected]),
+
   % Spawn the given number of actors in 1D topology
-  PIDMap = topology:spawn_oneD(1, ActorCount, Topology, Algorithm, ets:new(pidMap, [set, protected, named_table])),
+  topology:spawn_oneD(1, ActorCount, Topology, Algorithm),
 
   % Select a Random participant and extract PID of it, for starting the gossip
-  SelectedActorPID = ets:lookup_element(PIDMap, 1, 2), % For now select the first element, and take the PID of that
+  SelectedActorPID = ets:lookup_element(pidTable, 1, 2), % For now select the first element, and take the PID of that
 
   % Let the supervisor handover the message to the TransmissionPID process
   start_transmission(SelectedActorPID, Algorithm),
@@ -86,7 +92,7 @@ main_1D_topology(ActorCount, Topology, Algorithm) ->
   {_, TimeElapsed} = statistics(wall_clock),
 
   %% Output the time taken to converge
-  io:format("Actual clock time taken for ~p workers to converge - ~p seconds~n", [ActorCount, TimeElapsed]).
+  io:format("Actual clock time taken for ~p workers to converge - ~p milliseconds~n", [ActorCount, TimeElapsed]).
 
 
 main(ParticipantCount, Topology, Algorithm) ->
@@ -107,4 +113,10 @@ main(ParticipantCount, Topology, Algorithm) ->
     imp2D ->
       io:format("Using imp2D network topology~n"),
       main_2D_topology(ParticipantCount, Topology, Algorithm)
-  end.
+  end,
+
+  %% Delete the ETS table from the storage
+  ets:delete(pidTable),
+
+  %% Unregister the current process
+  erlang:unregister(?MODULE).

@@ -10,9 +10,9 @@
 -author("bhagyaraj").
 
 %% API
--export([spawn_oneD/5, spawn_twoD/5]).
+-export([spawn_oneD/4, spawn_twoD/4]).
 
-spawn_oneD(CurrentSpawnIndex, ParticipantCount, Topology, Algorithm, PIDMap) ->
+spawn_oneD(CurrentSpawnIndex, ParticipantCount, Topology, Algorithm) ->
   if
     % Spawn the actor based on the algorithm and update its PID in the map
     CurrentSpawnIndex =< ParticipantCount ->
@@ -21,14 +21,14 @@ spawn_oneD(CurrentSpawnIndex, ParticipantCount, Topology, Algorithm, PIDMap) ->
         pushsum -> CurrentSpawnPID = done% spawn_link(node(), pushsum, pushsum_worker, [CurrentSpawnIndex, ParticipantCount, Topology, {CurrentPosition, 1}])
       end,
       % Insert into the ETS table in the format {ActorIndex, ActorPID}
-      spawn_oneD(CurrentSpawnIndex + 1, ParticipantCount, Topology, Algorithm, ets:insert(pidMap, {CurrentSpawnIndex, CurrentSpawnPID}));
+      ets:insert(pidTable, {CurrentSpawnIndex, CurrentSpawnPID}),
+      spawn_oneD(CurrentSpawnIndex + 1, ParticipantCount, Topology, Algorithm);
 
-    % Return the PIDMap after all the spawns are done
+    % Return the pidTable after all the spawns are done
     true ->
-      io:format("All ~p ~p workers have been spawned~n", [ParticipantCount, Algorithm]),
-      PIDMap
+      io:format("All ~p ~p workers have been spawned~n", [ParticipantCount, Algorithm])
   end.
 
 
-spawn_twoD(CurrentSpawnIndex, ParticipantCount, Topology, Algorithm, PIDMap) ->
+spawn_twoD(_CurrentSpawnIndex, _ParticipantCount, _Topology, _Algorithm) ->
   done.

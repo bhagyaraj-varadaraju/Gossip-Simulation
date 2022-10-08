@@ -12,7 +12,8 @@
 %% API
 -export([pushsum_worker/4]).
 
-pushsum_worker(Actors, Topology, Nodes, Algorithm) ->
+pushsum_worker(_Actors, _Topology, _Nodes, _Algorithm) ->
+  done.
 %%  case Topology of
 %%    full ->
 %%      io:format("Using full topology"),
