@@ -14,6 +14,7 @@
 
 
 wait_for_convergence(NumOfMsgsRcvd, MaxActors) ->
+  %Checks if success message has been received successfully or not
   if
     NumOfMsgsRcvd == MaxActors -> io:format("All ~p workers finished gossiping and converged~n", [MaxActors]);
     true ->
@@ -34,7 +35,7 @@ start_transmission(SelectedActorPID, Algorithm) ->
     pushsum ->
       % Send the {sum, weight} to the selected node for calculating the sum of all nodes
       io:format("Using pushsum algorithm~n"),
-      SelectedActorPID ! {pushsum_from_boss, {1, 1}}
+      SelectedActorPID ! {pushsum_from_boss}
   end.
 
 
@@ -52,7 +53,7 @@ main_2D_topology(ActorCount, Topology, Algorithm) ->
   topology:spawn_twoD({1, 1}, {Rows, Cols}, Topology, Algorithm),
 
   % Select a Random participant for starting the gossip
-  SelectedActorPID = ets:lookup_element(pidTable, {1, 1}, 2), % For now select the first element, and take the PID of that
+  SelectedActorPID = ets:lookup_element(pidTable, {rand:uniform(Rows), rand:uniform(Cols)}, 2),
 
   % Let the supervisor handover the message to the TransmissionPID process
   start_transmission(SelectedActorPID, Algorithm),
@@ -78,7 +79,7 @@ main_1D_topology(ActorCount, Topology, Algorithm) ->
   topology:spawn_oneD(1, ActorCount, Topology, Algorithm),
 
   % Select a Random participant and extract PID of it, for starting the gossip
-  SelectedActorPID = ets:lookup_element(pidTable, 1, 2), % For now select the first element, and take the PID of that
+  SelectedActorPID = ets:lookup_element(pidTable, rand:uniform(ActorCount), 2),
 
   % Let the supervisor handover the message to the TransmissionPID process
   start_transmission(SelectedActorPID, Algorithm),

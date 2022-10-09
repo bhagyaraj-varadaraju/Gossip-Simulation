@@ -32,6 +32,7 @@ spawn_oneD(CurrentSpawnIndex, ParticipantCount, Topology, Algorithm) ->
 
 
 spawn_twoD({CurrentRow, CurrentColumn}, {MaxRows, MaxColumns}, Topology, Algorithm) ->
+  %Checks if all actors are spawned if true ends or if in each row if Max Column is reached increases the row and resets the column else increases the column in the same row
   case (CurrentRow > MaxRows ) of
     true ->
       io:format("Succesffully spawned a 2d grid of ~w ~w ~n", [MaxRows, MaxColumns]);

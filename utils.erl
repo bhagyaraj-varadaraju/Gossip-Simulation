@@ -11,11 +11,30 @@
 -define(MAX_ROUNDS_WITH_SAME_STATE_TO_CONVERGE, 3).
 
 %% API
--export([round_up_to_perfect_square/1, get_next_actor/3]).
+-export([round_up_to_perfect_square/1, get_next_actor/3, updateSumEstimateList/2]).
 
 check_if_pushsum_converged(SumEstimateList) ->
-  done.
+  %true if done else false
+  ListLength = lists:flatlength(SumEstimateList),
+  if ListLength == ?MAX_ROUNDS_WITH_SAME_STATE_TO_CONVERGE ->
+      Avg1 = lists:nth(1,SumEstimateList),
+      lists:all(
+        fun(Avgi)->
+          erlang:abs(Avg1 - Avgi) < 0.0001
+        end,
+        SumEstimateList
+      );
+    true -> false
+  end.
 
+updateSumEstimateList(Var,SumEstimateList) ->
+  SumEstimateListLength = lists:flatlength(SumEstimateList),
+  case SumEstimateListLength of
+    3 -> [_H | T] = SumEstimateList,
+      UpdatedSumEstimateList = lists:append(T, [Var]);
+    _ -> UpdatedSumEstimateList = lists:append(SumEstimateList, [Var])
+  end,
+  UpdatedSumEstimateList.
 
 round_up_to_perfect_square(ActorCount) ->
   % Round up the ActorCount to a perfect square
@@ -55,6 +74,7 @@ get_neighbour_oneD(CurrentActorIndex, MaxActorIndex) ->
 
 
 get_neighbours_twoD(Row,Column,MaxRows,MaxColumns)->
+  %checks for boundares like corner elements and edge elements and sends neighbours accordingly
   case Row of
     1 ->
       case Column of
@@ -89,6 +109,7 @@ get_neighbours_twoD(Row,Column,MaxRows,MaxColumns)->
 
 
 get_next_actor(CurrentActorIndex, MaxActorIndex, Topology) ->
+  %returns the next actor by receiving the neighbours list and sending the random neighbour of it
   case Topology of
     full ->
       NextActorIndex = rand:uniform(MaxActorIndex),
