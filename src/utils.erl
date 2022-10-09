@@ -11,30 +11,31 @@
 -define(MAX_ROUNDS_WITH_SAME_STATE_TO_CONVERGE, 3).
 
 %% API
--export([round_up_to_perfect_square/1, get_next_actor/3, updateSumEstimateList/2]).
+-export([round_up_to_perfect_square/1, get_next_actor/3, check_if_pushsum_converged/1, update_sum_estimate_list/2]).
 
 check_if_pushsum_converged(SumEstimateList) ->
-  %true if done else false
+  % True if converged else false
   ListLength = lists:flatlength(SumEstimateList),
   if ListLength == ?MAX_ROUNDS_WITH_SAME_STATE_TO_CONVERGE ->
-      Avg1 = lists:nth(1,SumEstimateList),
+      SE_1 = lists:nth(1, SumEstimateList),
       lists:all(
-        fun(Avgi)->
-          erlang:abs(Avg1 - Avgi) < 0.0001
+        fun(SE_i) ->
+          erlang:abs(SE_1 - SE_i) < 0.0000000001
         end,
-        SumEstimateList
-      );
+        SumEstimateList);
+
     true -> false
   end.
 
-updateSumEstimateList(Var,SumEstimateList) ->
+update_sum_estimate_list(SumEstimateList, SE) ->
   SumEstimateListLength = lists:flatlength(SumEstimateList),
   case SumEstimateListLength of
     3 -> [_H | T] = SumEstimateList,
-      UpdatedSumEstimateList = lists:append(T, [Var]);
-    _ -> UpdatedSumEstimateList = lists:append(SumEstimateList, [Var])
+      UpdatedSumEstimateList = lists:append(T, [SE]);
+    _ -> UpdatedSumEstimateList = lists:append(SumEstimateList, [SE])
   end,
   UpdatedSumEstimateList.
+
 
 round_up_to_perfect_square(ActorCount) ->
   % Round up the ActorCount to a perfect square

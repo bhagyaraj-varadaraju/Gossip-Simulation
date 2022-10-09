@@ -38,10 +38,10 @@ listen_to_gossip(MYWorkerIndex, MaxWorkerIndex, Topology, RumorList) ->
   if
     Convergence_in_progress ->
       if
-        % Wait indefinitely until we receive at least one rumor.
+        % Wait indefinitely until we receive at least one rumor
         RumorListLength == 0 ->
           receive
-          % Gossip sent by the supervisor, only one selected process will receive 'gossip_from_supervisor' message.
+          % Gossip sent by the supervisor, only one selected process will receive 'gossip_from_supervisor' message
             {gossip_from_boss, Rumor} ->
               io:format("Rumor '~p' received from the supervisor~n", [Rumor]),
               spread_gossip_to_neighbor(MYWorkerIndex, MaxWorkerIndex, Topology, lists:append(RumorList, [Rumor]));
@@ -66,7 +66,7 @@ listen_to_gossip(MYWorkerIndex, MaxWorkerIndex, Topology, RumorList) ->
 
     % Send 'success' message to the supervisor after convergence is done
     true ->
-      supervising_boss ! {success, MYWorkerIndex}
+      supervising_boss ! {success, MYWorkerIndex, lists:last(RumorList)}
   end.
 
 

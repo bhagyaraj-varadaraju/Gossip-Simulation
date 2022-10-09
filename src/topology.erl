@@ -35,14 +35,14 @@ spawn_twoD({CurrentRow, CurrentColumn}, {MaxRows, MaxColumns}, Topology, Algorit
   %Checks if all actors are spawned if true ends or if in each row if Max Column is reached increases the row and resets the column else increases the column in the same row
   case (CurrentRow > MaxRows ) of
     true ->
-      io:format("Succesffully spawned a 2d grid of ~w ~w ~n", [MaxRows, MaxColumns]);
+      io:format("Succesffully spawned a 2d grid of {~p Rows, ~p Columns}~n", [MaxRows, MaxColumns]);
 
     false ->
       case (CurrentColumn == MaxColumns) of
         true ->
           case Algorithm of
             gossip -> CurrentSpawnPID = spawn_link(node(), gossip, gossip_worker, [{CurrentRow, CurrentColumn}, {MaxRows, MaxColumns}, Topology]);
-            pushsum ->  CurrentSpawnPID = spawn_link(node(), pushsum, pushsum_worker(), [{CurrentRow, CurrentColumn}, {MaxRows, MaxColumns}, {((CurrentRow - 1) * MaxColumns) + CurrentColumn, 1}, Topology])
+            pushsum ->  CurrentSpawnPID = spawn_link(node(), pushsum, pushsum_worker, [{CurrentRow, CurrentColumn}, {MaxRows, MaxColumns}, {((CurrentRow - 1) * MaxColumns) + CurrentColumn, 1}, Topology])
           end,
           ets:insert(pidTable, {{CurrentRow, CurrentColumn}, CurrentSpawnPID}),
           spawn_twoD({CurrentRow + 1, 1}, {MaxRows, MaxColumns}, Topology, Algorithm);
@@ -50,7 +50,7 @@ spawn_twoD({CurrentRow, CurrentColumn}, {MaxRows, MaxColumns}, Topology, Algorit
         false ->
           case Algorithm of
             gossip -> CurrentSpawnPID = spawn_link(node(), gossip, gossip_worker, [{CurrentRow, CurrentColumn}, {MaxRows, MaxColumns}, Topology]);
-            pushsum -> CurrentSpawnPID = spawn_link(node(), pushsum, pushsum_worker(), [{CurrentRow, CurrentColumn}, {MaxRows, MaxColumns}, {((CurrentRow - 1) * MaxColumns) + CurrentColumn, 1}, Topology])
+            pushsum -> CurrentSpawnPID = spawn_link(node(), pushsum, pushsum_worker, [{CurrentRow, CurrentColumn}, {MaxRows, MaxColumns}, {((CurrentRow - 1) * MaxColumns) + CurrentColumn, 1}, Topology])
           end,
           ets:insert(pidTable, {{CurrentRow, CurrentColumn}, CurrentSpawnPID}),
           spawn_twoD({CurrentRow, CurrentColumn + 1}, {MaxRows, MaxColumns}, Topology, Algorithm)

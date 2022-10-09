@@ -8,20 +8,38 @@
 %%%-------------------------------------------------------------------
 -module(supervising_boss).
 -author("bhagyaraj").
+-define(MAX_WAIT_TIME_FOR_ALL_WORKERS_CONVERGENCE, 3000).
 
 %% API
 -export([main/3]).
 
 
-wait_for_convergence(NumOfMsgsRcvd, MaxActors) ->
-  %Checks if success message has been received successfully or not
+wait_for_convergence(NumOfMsgsRcvd, MaxActors, Algorithm) ->
   if
-    NumOfMsgsRcvd == MaxActors -> io:format("All ~p workers finished gossiping and converged~n", [MaxActors]);
+    NumOfMsgsRcvd == MaxActors ->
+      io:format("All ~p workers finished gossiping and converged. Convergence efficiency = ~p~n", [MaxActors, (NumOfMsgsRcvd / MaxActors) * 100]);
     true ->
+      % Keep listening to the success messages from the workers
       receive
-        {success, SentActorIndex} ->
-          io:format("Received success message from Actor - [~p]~n", [SentActorIndex]),
-          wait_for_convergence(NumOfMsgsRcvd + 1, MaxActors)
+        {success, SentActorIndex, ReceivedMsg} ->
+          case Algorithm of
+            gossip -> io:format("Received success message from Actor [~p]~n", [SentActorIndex]);
+            pushsum -> io:format("Received success message from Actor [~p], Sum estimate was ~p ~n", [SentActorIndex, ReceivedMsg])
+          end,
+          wait_for_convergence(NumOfMsgsRcvd + 1, MaxActors, Algorithm)
+
+      % If there is no message for 3 seconds, stop waiting for convergence
+      after ?MAX_WAIT_TIME_FOR_ALL_WORKERS_CONVERGENCE ->
+        if
+          NumOfMsgsRcvd == 0 ->
+            %  Still no worker has converged, so keep waiting
+            wait_for_convergence(NumOfMsgsRcvd, MaxActors, Algorithm);
+
+          true ->
+            %  Few workers have converged. So, it's unlikely that other workers will converge after a wait time of 3 sec.
+            io:format("No messages received from workers for ~p milliseconds. Totally ~p workers converged out of ~p workers. Convergence efficiency = ~p~n",
+              [?MAX_WAIT_TIME_FOR_ALL_WORKERS_CONVERGENCE, NumOfMsgsRcvd, MaxActors,  (NumOfMsgsRcvd / MaxActors) * 100])
+        end
       end
   end.
 
@@ -35,7 +53,7 @@ start_transmission(SelectedActorPID, Algorithm) ->
     pushsum ->
       % Send the {sum, weight} to the selected node for calculating the sum of all nodes
       io:format("Using pushsum algorithm~n"),
-      SelectedActorPID ! {pushsum_from_boss}
+      SelectedActorPID ! {pushsum_from_boss, {1, 1}}
   end.
 
 
@@ -52,8 +70,8 @@ main_2D_topology(ActorCount, Topology, Algorithm) ->
   % Spawn the given number of actors in 2D topology
   topology:spawn_twoD({1, 1}, {Rows, Cols}, Topology, Algorithm),
 
-  % Select a Random participant for starting the gossip
-  SelectedActorPID = ets:lookup_element(pidTable, {rand:uniform(Rows), rand:uniform(Cols)}, 2),
+  % Select the first participant for starting the gossip
+  SelectedActorPID = ets:lookup_element(pidTable, {1, 1}, 2),
 
   % Let the supervisor handover the message to the TransmissionPID process
   start_transmission(SelectedActorPID, Algorithm),
@@ -62,13 +80,13 @@ main_2D_topology(ActorCount, Topology, Algorithm) ->
   statistics(wall_clock),
 
   % Wait for all the workers to return success.
-  wait_for_convergence(0, AdjustedActorCount),
+  wait_for_convergence(0, AdjustedActorCount, Algorithm),
 
   % Stop the wall clock for calculating the time elapsed for convergence.
   {_, TimeElapsed} = statistics(wall_clock),
 
   %% Output the time taken to converge
-  io:format("Actual clock time taken for ~p workers to converge - ~p seconds~n", [AdjustedActorCount, TimeElapsed]).
+  io:format("Actual clock time taken to converge is ~p milliseconds~n", [TimeElapsed]).
 
 
 main_1D_topology(ActorCount, Topology, Algorithm) ->
@@ -78,8 +96,8 @@ main_1D_topology(ActorCount, Topology, Algorithm) ->
   % Spawn the given number of actors in 1D topology
   topology:spawn_oneD(1, ActorCount, Topology, Algorithm),
 
-  % Select a Random participant and extract PID of it, for starting the gossip
-  SelectedActorPID = ets:lookup_element(pidTable, rand:uniform(ActorCount), 2),
+  % Select the first participant and extract PID of it, for starting the gossip
+  SelectedActorPID = ets:lookup_element(pidTable, 1, 2),
 
   % Let the supervisor handover the message to the TransmissionPID process
   start_transmission(SelectedActorPID, Algorithm),
@@ -88,13 +106,13 @@ main_1D_topology(ActorCount, Topology, Algorithm) ->
   statistics(wall_clock),
 
   % Wait for all the workers to return success.
-  wait_for_convergence(0, ActorCount),
+  wait_for_convergence(0, ActorCount, Algorithm),
 
   % Stop the wall clock for calculating the time elapsed for convergence.
   {_, TimeElapsed} = statistics(wall_clock),
 
   %% Output the time taken to converge
-  io:format("Actual clock time taken for ~p workers to converge - ~p milliseconds~n", [ActorCount, TimeElapsed]).
+  io:format("Actual clock time taken to converge is ~p milliseconds~n", [TimeElapsed]).
 
 
 main(ParticipantCount, Topology, Algorithm) ->
