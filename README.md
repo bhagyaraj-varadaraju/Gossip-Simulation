@@ -1,4 +1,4 @@
-# GOSSIP-Simulation
+# Gossip-Simulation
 Simulation of gossip algorithm in erlang
 
 Use the following cmds to run project:
